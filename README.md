@@ -1,6 +1,6 @@
 **Contextual familiarity rescues the cost of switching**
 
-Here are the scripts from this project which results in the manuscript "Contextual familiarity rescues the cost of switching." Data available upon request and all scripts for reproducing the main results shown in the manuscripts can be found here. 
+Here are the scripts from this project which resulted in the manuscript "Contextual familiarity rescues the cost of switching." Data available upon request and all scripts for reproducing the main results shown in the manuscript can be found here. 
 
 
 **Experimental Design**
