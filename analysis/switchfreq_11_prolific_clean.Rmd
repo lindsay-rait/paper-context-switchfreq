@@ -1,0 +1,2547 @@
+---
+title: "Sf11_prolific"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#Load in libraries 
+library(tidyverse)
+library(rio)
+library(plyr)
+library(dplyr)
+library(fs)
+library(lme4)
+library(lmerTest)
+library(psych)
+options(scipen=999)
+library(ggplot2)
+```
+
+#ENCODING
+
+```{r}
+#loading in data 
+
+switch11 <- import("switchfreq_11_main_raw_21_02_21.csv")
+
+#filter out subjects who are not included in final sample 
+# Create a vector of subjects to exclude
+excluded_subjects <- c(
+  '135805', '141694', '149968', '154129', '155302', '156577', '156625', '156892',
+  '156919', '156967', '157111', '157219', '157225', '157228', '157243', '157426',
+  '157441', '157522', '157552', '157576', '157585', '157681', '742243851', 
+  '157843', '742243853', '157771'
+)
+
+# Filter out subjects in one step
+switch11_use <- switch11 %>% 
+  filter(!subject %in% excluded_subjects)
+
+  
+#filter out the math distractor task to include only the encoding data 
+sf11_total_encodingonly <-  switch11_use %>% 
+  filter(str_detect(trialcode, "image"))
+
+
+```
+
+
+
+```{r}
+
+#add in columns to data set 
+sf11_total_encodingonly_new <- sf11_total_encodingonly %>% 
+ mutate(blocknum_contin = case_when(blocknum == "11" ~ "1",
+                                         blocknum == "15" ~"2",
+                                         blocknum == "19" ~"3",
+                                         blocknum == "23" ~"4",
+                                      blocknum == "27" ~ "5",
+                                         blocknum == "31" ~"6",
+                                         blocknum == "35" ~"7",
+                                         blocknum == "39" ~"8")) %>% 
+  mutate(list_half = case_when(trialnum == "1" ~ "first_half",
+                                         trialnum == "2" ~"first_half",
+                                         trialnum == "3" ~"first_half",
+                                         trialnum == "4" ~"first_half",
+                                         trialnum == "5" ~ "first_half",
+                                         trialnum == "6" ~"first_half",
+                                         trialnum == "7" ~"first_half",
+                                         trialnum == "8" ~"first_half",
+                                         trialnum == "9" ~"first_half",
+                                         trialnum == "10" ~"first_half",
+                                         trialnum == "11" ~"first_half",
+                                         trialnum == "12" ~ "first_half",
+                                         trialnum == "13" ~"second_half",
+                                         trialnum == "14" ~"second_half",
+                                         trialnum == "15" ~"second_half",
+                                          trialnum == "16" ~"second_half",
+                                         trialnum == "17" ~"second_half",
+                                         trialnum == "18" ~"second_half",
+                                          trialnum == "19" ~"second_half",
+                                         trialnum == "20" ~"second_half",
+                                         trialnum == "21" ~"second_half",
+                                          trialnum == "22" ~"second_half",
+                                         trialnum == "23" ~"second_half",
+                                         trialnum == "24" ~"second_half")) %>% 
+  mutate(condition_control = case_when(condition == "cont_mid" ~ "no switch",
+                                         condition == "cont_high" ~"no switch",
+                                         condition == "high" ~"switch",
+                                         condition == "mid" ~"switch")) %>% 
+  mutate(condition_mh = case_when(condition == "cont_mid" ~ "mid",
+                                         condition == "cont_high" ~"high",
+                                         condition == "high" ~"high",
+                                         condition == "mid" ~"mid")) %>% 
+    mutate(pool_number = case_when(word_enc == "ACORN"~ 1, 
+word_enc == "ANCHOR"~	2,
+word_enc =="APPLE"	~3,
+word_enc =="APRON"	~4, 
+word_enc =="ARROW"~	5,
+word_enc =="ATLAS"~	6,
+word_enc =="BACON"~	7,
+word_enc =="BAKER"~	8,
+word_enc =="BANDAGE"~ 9,
+word_enc =="BANJO"~	10,
+word_enc =="BANKER"~	11,
+word_enc =="BARLEY"~	12,
+word_enc =="BARREL"~	13,
+word_enc =="BASEBALL"~	14,
+word_enc =="BEAKER"~	15,
+word_enc =="BEAVER"~	16,
+word_enc =="BEETLE"~	17,
+word_enc =="BERRY"~	18,
+word_enc =="BINDER"~	19,
+word_enc =="BISCUIT"~	20,
+word_enc =="BISON"~	21,
+word_enc =="BLACKBOARD"~	22,
+word_enc =="BLENDER"~	23,
+word_enc =="BOTTLE"~	24,
+word_enc =="BRACELET"~	25,
+word_enc =="BRIEFCASE"~	26,
+word_enc =="BUILDING"~	27,
+word_enc =="BUTLER"~	28,
+word_enc =="BUTTER"~	29,
+word_enc =="BUTTON"~	30,
+word_enc =="CABBAGE"~	31,
+word_enc =="CACTUS"~	32,
+word_enc =="CAMEL"~	33,
+word_enc =="CANDY"~	34,
+word_enc =="CANOE"~	35,
+word_enc =="CANVAS"~	36,
+word_enc =="CARPET"~	37,
+word_enc =="CARROT"~	38,
+word_enc =="CARTON"~	39,
+word_enc =="CASTLE"~	40,
+word_enc =="CATTLE"~	41,
+word_enc =="CELLO"~	42,
+word_enc =="CHECKERS"~	43,
+word_enc =="CHEDDAR"~	44,
+word_enc =="CHERRY"~	45,
+word_enc =="CHICKEN"~	46,
+word_enc =="CHIPMUNK"~	47,
+word_enc =="CLOSET"~	48,
+word_enc =="COFFEE"~	49,
+word_enc =="COMPASS"~	50,
+word_enc =="COOKBOOK"~	51,
+word_enc =='COOKIE'~	52,
+word_enc =="COOLER"~	53,
+word_enc =="CORAL"~	54,
+word_enc =="COTTAGE"~	55,
+word_enc =="COTTON"~	56,
+word_enc =="CRACKER"~	57,
+word_enc =="CRAYON"~	58,
+word_enc =="CRICKET"~	59,
+word_enc =="CRYSTAL"~	60,
+word_enc =="CURTAIN"~	61,
+word_enc =="CUSHION"~	62,
+word_enc =="DAISY"~	63,
+word_enc =="DENIM"~	64,
+word_enc =="DENTIST"~	65,
+word_enc =="DESSERT"~	66,
+word_enc =="DIAPER"~	67,
+word_enc =="DINNER"~	68,
+word_enc =="DOLLAR"~	69,
+word_enc =="DOLPHIN"~	70,
+word_enc =="DONKEY"~	71,
+word_enc =="DOORBELL"~	72,
+word_enc =="DOUGHNUT"~	73,
+word_enc =="DRAWING"~	74,
+word_enc =="DRESSER"~	75,
+word_enc =="DRIVEWAY"~	76,
+word_enc =="DUSTPAN"~	77,
+word_enc =="EAGLE"~	78,
+word_enc =="EARRING"~	79,
+word_enc =="ENGINE"~	80,
+word_enc =="ESSAY"~	81,
+word_enc =="FAUCET"~	82,
+word_enc =="FEATHER"~	83,
+word_enc =="FLANNEL"~	84,
+word_enc =="FLASHLIGHT"~	85,
+word_enc =="FOLDER"~	86,
+word_enc =="FOOTBALL"~	87,
+word_enc =="FOREST"~	88,
+word_enc =="FOSSIL"~	89,
+word_enc =="FOUNTAIN"~	90,
+word_enc =="FREEZER"~	91,
+word_enc =="GARBAGE"~	92,
+word_enc =="GARDEN"~	93,
+word_enc =="GARLIC"~	94,
+word_enc =="GIRAFFE"~	95,
+word_enc =="GUITAR"~	96,
+word_enc =="GYMNAST"~	97,
+word_enc =="HAMMER"~	98,
+word_enc =="HAMMOCK"~	99,
+word_enc =="HAMPER"~	100,
+word_enc =="HANDBAG"~	101,
+word_enc =="HANGER"~	102,
+word_enc =="HEADBAND"~	103,
+word_enc =="HELMET"~	104,
+word_enc =="HIGHWAY"~	105,
+word_enc =="HIKER"~	106,
+word_enc =="HONEY"~	107,
+word_enc =="IRON"~	108,
+word_enc =="JACKET"~	109,
+word_enc =="JELLY"~	110,
+word_enc =="JEWEL"~	111,
+word_enc =="KETCHUP"~	112,
+word_enc =="KETTLE"~	113,
+word_enc =="KEYBOARD"~	114,
+word_enc =="KITCHEN"~	115,
+word_enc =="LADDER"~	116,
+word_enc =="LAUNDRY"~	117,
+word_enc =="LAVA"~	118,
+word_enc =="LAWYER"~	119,
+word_enc =="LEMON"~	120,
+word_enc =="LEOPARD"~	121,
+word_enc =="LETTER"~	122,
+word_enc =="LETTUCE"~	123,
+word_enc =="LINEN"~	124,
+word_enc =="LION"~	125,
+word_enc =="LIPSTICK"~	126,
+word_enc =="LITTER"~	127,
+word_enc =="LIZARD"~	128,
+word_enc =="LUGGAGE"~	129,
+word_enc =="LUMBER"~	130,
+word_enc =="MACHINE"~	131,
+word_enc =="MAILBOX"~	132,
+word_enc =="MARBLE"~	133,
+word_enc =="MATTRESS"~	134,
+word_enc =="MIRROR"~	135,
+word_enc =="MITTEN"~	136,
+word_enc =="MONKEY"~	137,
+word_enc =="MOUNTAIN"~	138,
+word_enc =="MUFFIN"~	139,
+word_enc =="MUSHROOM"~	140,
+word_enc =="NAPKIN"~	141,
+word_enc =="NECKLACE"~	142,
+word_enc =="NEEDLE"~	143,
+word_enc =="NICKEL"~	144,
+word_enc =="NOVEL"~	145,
+word_enc =="OATMEAL"~	146,
+word_enc =="OLIVE"~	147,
+word_enc =="OMELET"~	148,
+word_enc =="ONION"~	149,
+word_enc =="ORANGE"~	150,
+word_enc =="ORCHID"~	151,
+word_enc =="OTTER"~	152,
+word_enc =="OUTFIT"~	153,
+word_enc =="OVEN"~	154,
+word_enc =="OWL"~	155,
+word_enc =="OYSTER"~	156,
+word_enc =="PACKAGE"~	157,
+word_enc =="PADDLE"~	158,
+word_enc =="PAINTING"~	159,
+word_enc =="PANTHER"~	160,
+word_enc =="PARSLEY"~	161,
+word_enc =="PASTA"~	162,
+word_enc =="PASTRY"~	163,
+word_enc =="PEANUT"~	164,
+word_enc =="PEBBLE"~	165,
+word_enc =="PENCIL"~	166,
+word_enc =="PENGUIN"~	167,
+word_enc =="PENNY"~	168,
+word_enc =="PEPPER"~	169,
+word_enc =="PICKLE"~	170,
+word_enc =="PICNIC"~	171,
+word_enc =="PIGEON"~	172,
+word_enc =="PILLOW"~	173,
+word_enc =="PILOT"~	174,
+word_enc =="PIZZA"~	175,
+word_enc =="PLANET"~	176,
+word_enc =="PLAYGROUND"~	177,
+word_enc =="POPCORN"~	178,
+word_enc =="POSSUM"~	179,
+word_enc =="PRINTER"~	180,
+word_enc =="PUDDING"~	181,
+word_enc =="PUDDLE"~	182,
+word_enc =="PUMPKIN"~	183,
+word_enc =='PUZZLE'~	184,
+word_enc =="RABBIT"~	185,
+word_enc =="RACCOON"~	186,
+word_enc =="RACKET"~	187,
+word_enc =="RADISH"~	188,
+word_enc =="RAILROAD"~	189,
+word_enc =="RAISIN"~	190,
+word_enc =="RATTLE"~	191,
+word_enc =="RECEIPT"~	192,
+word_enc =="RECORD"~	193,
+word_enc =="REPORT"~	194,
+word_enc =="RIBBON"~	195,
+word_enc =="RIVER"~	196,
+word_enc =="ROBOT"~	197,
+word_enc =="RUNNER"~	198,
+word_enc =="SADDLE"~	199,
+word_enc =="SAILOR"~	200,
+word_enc =="SALAD"~	201,
+word_enc =="SALMON"~	202,
+word_enc =="SANDWICH"~	203,
+word_enc =="SEAFOOD"~	204,
+word_enc =="SEASHORE"~	205,
+word_enc =="SHAMPOO"~	206,
+word_enc =="SHOELACE"~	207,
+word_enc =="SHOVEL"~	208,
+word_enc =="SHOWER"~	209,
+word_enc =="SIDEWALK"~	210,
+word_enc =="SNORKEL"~	211,
+word_enc =="SODA"~	212,
+word_enc =="SOFA"~	213,
+word_enc =="SQUIRREL"~	214,
+word_enc =="STATUE"~	215,
+word_enc =="STICKER"~	216,
+word_enc =="STOCKING"~	217,
+word_enc =="SUGAR"~	218,
+word_enc =="SUITCASE"~	219,
+word_enc =="SUNRISE"~	220,
+word_enc =="SWEATER"~	221,
+word_enc =="TABLE"~	222,
+word_enc =="TEACHER"~	223,
+word_enc =="TOASTER"~	224,
+word_enc =="TOOTHBRUSH"~	225,
+word_enc =="TOURIST"~	226,
+word_enc =="TOWEL"~	227,
+word_enc =="TOWER"~	228,
+word_enc =="TUBA"~	229,
+word_enc =="TULIP"~	230,
+word_enc =="TURNIP"~	231,
+word_enc =="TURTLE"~	232,
+word_enc =="VACUUM"~	233,
+word_enc =="VALLEY"~	234,
+word_enc =="VELVET"~	235,
+word_enc =="WAGON"~	236,
+word_enc =="WALNUT"~	237,
+word_enc =="WALRUS"~	238,
+word_enc =="WASHCLOTH"~	239,
+word_enc =="ZIPPER"~	240))
+
+sf11_total_encodingonly_new$blocknum_contin <- as.integer(sf11_total_encodingonly_new$blocknum_contin )
+```
+
+
+
+
+```{r}
+#encoding task 
+
+detach(package:Rmisc)
+detach(package:plyr)
+
+
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+
+encoding_sf11_avg <- sf11_total_encodingonly_new %>% 
+  group_by(image, word_enc) %>% 
+  mutate(resp_mode = Mode(response)) %>%  #takes the mode of responses based on word and trial 
+  mutate(similar_to_avg = case_when(response == resp_mode ~ 1, #when the response is the mode - 1
+                               response != resp_mode ~ 0)) %>% #when response is not the mode - 0
+  arrange(subject, blocknum) %>% #arranges it back by subject 
+  group_by(subject, blocknum) %>% 
+  mutate(sum_encoding_sim = sum(similar_to_avg)) #creates a sum by block 
+encoding_sf11_avg
+
+encoding_sf11_avg %>% 
+  group_by(subject, blocknum) %>% 
+  summarise(mean_enc_num = mean(sum_encoding_sim))
+
+
+encoding_sf11_avg_2 <- encoding_sf11_avg %>% 
+  group_by(subject) %>% 
+  mutate(similar_to_avg_percent = sum(similar_to_avg)/192*100) %>% 
+  summarise(mean_enc = mean(similar_to_avg_percent, na.rm = TRUE))
+
+#Calculate average encoding not based on trialcode, but based on actual stimuli on the screen (in column "image"). This is because of the way I coded it, the item in trialcode maps to multiple images. Therefore, Image is the column needed to determine which "task" the participants are performing on that trial 
+
+#chance is 55.7% for 192 trials 
+
+mean_encoding_11 <- mean(encoding_sf11_avg_2$mean_enc, na.rm = TRUE)
+mean_encoding_11
+
+```
+
+```{r}
+#create separate dataframes for between subjects manipulations
+#between subjects manipulation here is same vs novel NOT high vs mid 
+
+#removes switch from control also
+
+sf11_total_encodingonly_between <- encoding_sf11_avg %>% 
+  mutate(between_condition = case_when(blockcode == "control_mid_same" ~ "same",
+                                         blockcode == "control_high_same" ~"same",
+                                         blockcode == "high_control_same" ~"same",
+                                         blockcode == "mid_control_same" ~"same",
+                                       blockcode == "control_mid_novel" ~ "novel",
+                                         blockcode == "control_high_novel" ~"novel",
+                                         blockcode == "high_control_novel" ~"novel",
+                                         blockcode == "mid_control_novel" ~"novel")) %>% 
+  filter(task_switch == "switch" & condition == "high"|task_switch == "repeat" & condition == "high"|task_switch == "start" & condition == "high"| task_switch == "switch" & condition == "mid"| task_switch == "repeat" & condition == "mid"| task_switch == "start" & condition == "mid"|task_switch == "repeat" & condition == "cont_high"| task_switch == "start" & condition == "cont_high"| task_switch == "repeat" & condition == "cont_mid"| task_switch == "start" & condition == "cont_mid")
+
+
+
+sf11_total_encodingonly_same <-sf11_total_encodingonly_between %>% 
+  filter(between_condition == "same")
+
+
+sf11_total_encodingonly_novel <-sf11_total_encodingonly_between %>% 
+  filter(between_condition == "novel")
+```
+
+
+
+```{r}
+#compare mean encoding performance between same and novel 
+
+encoding_sf11_avg_3 <- sf11_total_encodingonly_between %>% 
+  group_by(subject, between_condition) %>% 
+  mutate(similar_to_avg_percent = sum(similar_to_avg)/192*100) %>% 
+  summarise(mean_enc = mean(similar_to_avg_percent, na.rm = TRUE))
+
+mean_encoding_11_2 <- mean(encoding_sf11_avg_3$mean_enc, na.rm = TRUE)
+mean_encoding_11_2
+
+
+encoding_sf11_avg_3_same <- encoding_sf11_avg_3 %>% 
+  filter(between_condition == "same")
+
+mean_encoding_11_same <- mean(encoding_sf11_avg_3_same$mean_enc, na.rm = TRUE)
+mean_encoding_11_same
+
+
+sd_same <-sd(encoding_sf11_avg_3_same$mean_enc, na.rm = TRUE)
+sd_same
+
+se_same <- sd_same / sqrt(41)
+se_same
+
+encoding_sf11_avg_3_novel <- encoding_sf11_avg_3 %>% 
+  filter(between_condition == "novel")
+
+mean_encoding_11_novel <- mean(encoding_sf11_avg_3_novel$mean_enc, na.rm = TRUE)
+mean_encoding_11_novel
+
+
+sd_novel <-sd(encoding_sf11_avg_3_novel$mean_enc, na.rm = TRUE)
+sd_novel
+
+se_novel <- sd_novel / sqrt(43)
+se_novel
+
+
+t.test(encoding_sf11_avg_3_same$mean_enc, encoding_sf11_avg_3_novel$mean_enc)
+
+library(lsr)
+
+cohensD(mean_enc ~ between_condition,data = encoding_sf11_avg_3)
+```
+
+
+```{r}
+#sets path to data
+#changes ann files to txt files 
+path_to_data <- "~/Documents/DuBrow_lab/Projects/Multitasking/switchfreq_11/Raw_Data"
+setwd(path_to_data)
+ann_files <- list.files(path_to_data, recursive = TRUE, pattern = "*.ann", full.names = TRUE)
+text_files <- gsub(".ann", ".txt", ann_files)
+text_files
+file.rename(from= ann_files, to = text_files)
+```
+
+
+
+
+```{r}
+library(plyr)
+
+# Define the list of subject IDs explicitly
+subjects <- c("137455", "138853", "139435", "142837", "145912", "146857", "148570", "149335", 
+  "149395", "149437", "149512", "150661", "151762", "151921", "152983", "153382", 
+  "154174", "154264", "154348", "154444", "154801", "154906", "154984", "155560", 
+  "156130", "156385", "156418", "156436", "156541", "156544", "156550", "156586", 
+  "156595", "156604", "156691", "156739", "156751", "156784", "156961", "156970", 
+  "156979", "156988", "157000", "157027", "157057", "157063", "157069", "157159", 
+  "157171", "157198", "157210", "157261", "157270", "157327", "157339", "157354", 
+  "157381", "157411", "157432", "157435", "157438", "157447", "157456", "157471", 
+  "157474", "157486", "157489", "157498", "157549", "157603", "157621", "157639", 
+  "157648", "157663", "157696", "157837", "157912", "158350", "742243848", 
+  "742243852", "742243854", "154438", "157246", "152818")
+
+process_subject_data <- function(subject_id) {
+  # Define the path to the subject's recall files
+  recall_files <- dir_ls(paste0("~/Documents/DuBrow_lab/Projects/Multitasking/switchfreq_11/V1/Raw_data/", subject_id), glob = "*.txt")
+  
+  # Load the recall data
+  recall_data <- ldply(recall_files, import)
+  
+  # Clean the .id column
+  recall_data <- recall_data %>% 
+    mutate(.id = str_replace_all(.id, "/Users/lrait/Documents/DuBrow_lab/Projects/Multitasking/switchfreq_11/V1/Raw_data/", ""))
+  
+  # Separate final recall data and other recall data
+  final_recall <- recall_data %>% 
+    filter(.id == paste0(subject_id, "/", "finalrecall.txt"))
+  
+  recall <- recall_data %>% 
+    filter(!grepl(paste0(subject_id, "/", "finalrecall.txt"), .id))
+  
+  list(final_recall = final_recall, recall = recall)
+}
+
+# Process data for each subject and assign to individual variables
+for (subject_id in subjects) {
+  data <- process_subject_data(subject_id)
+  
+  assign(paste0("recall_data_final_", subject_id), data$final_recall)
+  assign(paste0("recall_", subject_id), data$recall)
+}
+```
+
+
+#IMMEDIATE RECALL 
+
+```{r}
+#most important code chunk.- immediate recall 
+library(stringr)
+detach(package:Rmisc) 
+detach(package:plyr) #MUST RUN THIS
+
+split_enc_11 <- split(sf11_total_encodingonly_between,sf11_total_encodingonly_between$subject)
+
+#list of all subjects individual recall data
+recall11_df_immed = list(recall_137455,recall_138853, recall_139435, recall_142837, recall_145912, recall_146857, recall_148570, recall_149335, recall_149395, recall_149437, recall_149512, recall_150661, recall_151762, recall_151921, recall_152983, recall_153382, recall_154174, recall_154264, recall_154348, recall_154444, recall_154801, recall_154906, recall_154984, recall_155560, recall_156130, recall_156385, recall_156418, recall_156436, recall_156541, recall_156544, recall_156550, recall_156586, recall_156595, recall_156604, recall_156691, recall_156739, recall_156751, recall_156784, recall_156961, recall_156970, recall_156979, recall_156988, recall_157000, recall_157027, recall_157057, recall_157063, recall_157069, recall_157159, recall_157171, recall_157198, recall_157210, recall_157261, recall_157270, recall_157327, recall_157339, recall_157354,recall_157381, recall_157411, recall_157432, recall_157435, recall_157438, recall_157447, recall_157456, recall_157471, recall_157474, recall_157486, recall_157489, recall_157498, recall_157549, recall_157603, recall_157621, recall_157621, recall_157639, recall_157648, recall_157663, recall_157696, recall_157837, recall_157912, recall_158350, recall_742243848, recall_742243852, recall_742243854, recall_154438, recall_157246, recall_152818)
+
+
+#list of task data 
+sf11_by_sub <- list(split_enc_11$'137455',split_enc_11$'138853', split_enc_11$'139435', split_enc_11$'142837', split_enc_11$'145912', split_enc_11$'146857', split_enc_11$'148570', split_enc_11$'149335', split_enc_11$'149395', split_enc_11$'149437', split_enc_11$'149512', split_enc_11$'150661', split_enc_11$'151762', split_enc_11$'151921', split_enc_11$'152983', split_enc_11$'153382', split_enc_11$'154174', split_enc_11$'154264', split_enc_11$'154348', split_enc_11$'154444', split_enc_11$'154801', split_enc_11$'154906', split_enc_11$'154984', split_enc_11$'155560', split_enc_11$'156130', split_enc_11$'156385', split_enc_11$'156418', split_enc_11$'156436', split_enc_11$'156541', split_enc_11$'156544', split_enc_11$'156550', split_enc_11$'156586', split_enc_11$'156595', split_enc_11$'156604', split_enc_11$'156691', split_enc_11$'156739', split_enc_11$'156751', split_enc_11$'156784', split_enc_11$'156961', split_enc_11$'156970', split_enc_11$'156979', split_enc_11$'156988', split_enc_11$'157000', split_enc_11$'157027', split_enc_11$'157057', split_enc_11$'157063', split_enc_11$'157069', split_enc_11$'157159', split_enc_11$'157171', split_enc_11$'157198', split_enc_11$'157210', split_enc_11$'157261', split_enc_11$'157270', split_enc_11$'157327', split_enc_11$'157339', split_enc_11$'157354',split_enc_11$'157381', split_enc_11$'157411', split_enc_11$'157432', split_enc_11$'157435', split_enc_11$'157438', split_enc_11$'157447', split_enc_11$'157456', split_enc_11$'157471', split_enc_11$'157474', split_enc_11$'157486', split_enc_11$'157489', split_enc_11$'157498', split_enc_11$'157549', split_enc_11$'157603', split_enc_11$'157621', split_enc_11$'157621', split_enc_11$'157639', split_enc_11$'157648', split_enc_11$'157663', split_enc_11$'157696', split_enc_11$'157837', split_enc_11$'157912', split_enc_11$'158350', split_enc_11$'742243848', split_enc_11$'742243852', split_enc_11$'742243854', split_enc_11$`154438`, split_enc_11$`157246`, split_enc_11$`152818`)
+
+
+#for every subject:
+c = 0 
+for (ssid in array(1:length(recall11_df_immed))){
+    i = sf11_by_sub[[ssid]]
+    j = recall11_df_immed[[ssid]]
+    c = c +1 
+    output  <- i %>% 
+      mutate(recalls = tolower(word_enc) %in% tolower(j$V3))%>%  #matches the recall with task word
+      mutate(recalls = case_when(recalls == "TRUE" ~ 1, #if recalled word, puts a 1 
+                               recalls == "FALSE" ~ 0)) %>%  
+      group_by(condition, trialcode) %>% 
+      mutate(sum_recall = sum(recalls)) %>% # this column sums the recalls by condition and task
+      group_by(blocknum) %>% 
+      mutate(sum_recall_block = sum(recalls)) %>% #sums recalls by block
+      group_by(trialcode) %>% 
+      mutate(sum_recall_trialcode = sum(recalls)) #sums recalls just by task 
+    if (c ==1) {
+      sf11_total = output
+    } else {
+      sf11_total = rbind(sf11_total,output)
+    }}
+
+sf11_total
+```
+
+
+```{r}
+#recall by task - immediate 
+library(dplyr)
+detach(package:Rmisc) 
+detach(package:plyr)
+
+
+sf11_total_2_immed<- sf11_total %>% 
+  group_by(subject) %>% 
+  mutate(recall_percent2 = sum(recalls)/192*100) %>% 
+  summarise(mean_rec = mean(recall_percent2, na.rm = TRUE))
+sf11_total_2_immed
+
+
+
+#plot of each subjects recall in order 
+sf11_total_2_immed %>% 
+  ggplot(aes(x = reorder(as.character(subject), mean_rec), y = mean_rec))+
+  geom_col(fill = "orchid", width = .8)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))+
+  labs(title    = "Percent of Total Words Recalled",
+         x        = "Subject Number",
+         y        = "Percent Recalled")
+
+
+mean_recall11<- mean(sf11_total_2_immed$mean_rec, na.rm = TRUE)
+mean_recall11
+
+
+sd_11 <-sd(sf11_total_2_immed$mean_rec, na.rm = TRUE)
+```
+
+```{r}
+#mean recall between same and novel 
+
+sf11_total_2_immed_between<- sf11_total %>% 
+  group_by(subject, between_condition) %>% 
+  mutate(recall_percent2 = sum(recalls)/192*100) %>% 
+  summarise(mean_rec = mean(recall_percent2, na.rm = TRUE))
+sf11_total_2_immed_between
+
+sf11_total_2_immed_between_same <- sf11_total_2_immed_between %>% 
+  filter(between_condition == "same")
+
+
+mean_recall11_same<- mean(sf11_total_2_immed_between_same$mean_rec, na.rm = TRUE)
+mean_recall11_same
+
+
+sf11_total_2_immed_between_novel <- sf11_total_2_immed_between %>% 
+  filter(between_condition == "novel")
+
+mean_recall11_novel<- mean(sf11_total_2_immed_between_novel$mean_rec, na.rm = TRUE)
+mean_recall11_novel
+
+
+t.test(sf11_total_2_immed_between_same$mean_rec, sf11_total_2_immed_between_novel$mean_rec)
+
+
+cohensD(mean_rec~between_condition, sf11_total_2_immed_between)
+```
+
+
+
+
+```{r}
+#outliers at immed
+sf11_total_2_immed %>% 
+  arrange(mean_rec)
+
+
+sd_11 <-sd(sf11_total_2_immed$mean_rec, na.rm = TRUE)
+
+mean_recall11 <- mean(sf11_total_2_immed$mean_rec, na.rm = TRUE)
+
+mean_recall11 + (2.5 * sd_11) 
+mean_recall11 - (2.5 * sd_11)
+
+#all included 
+```
+
+
+
+```{r}
+#separate by between condition 
+sf11_total_2 <-sf11_total %>% 
+  mutate(between_condition = case_when(blockcode == "control_mid_same" ~ "same",
+                                         blockcode == "control_high_same" ~"same",
+                                         blockcode == "high_control_same" ~"same",
+                                         blockcode == "mid_control_same" ~"same",
+                                       blockcode == "control_mid_novel" ~ "novel",
+                                         blockcode == "control_high_novel" ~"novel",
+                                         blockcode == "high_control_novel" ~"novel",
+                                         blockcode == "mid_control_novel" ~"novel")) %>% 
+  filter(task_switch == "switch" & condition == "high"|task_switch == "repeat" & condition == "high"|task_switch == "start" & condition == "high"| task_switch == "switch" & condition == "mid"| task_switch == "repeat" & condition == "mid"| task_switch == "start" & condition == "mid"|task_switch == "repeat" & condition == "cont_high"| task_switch == "start" & condition == "cont_high"| task_switch == "repeat" & condition == "cont_mid"| task_switch == "start" & condition == "cont_mid") %>% 
+    mutate(condition_control = case_when(condition == "cont_mid" ~ "no switch",
+                                         condition == "cont_high" ~"no switch",
+                                         condition == "high" ~"switch",
+                                         condition == "mid" ~"switch")) %>% 
+  mutate(condition_mh = case_when(condition == "cont_mid" ~ "mid",
+                                         condition == "cont_high" ~"high",
+                                         condition == "high" ~"high",
+                                         condition == "mid" ~"mid")) %>% 
+     mutate(condition_high = case_when(condition == "cont_high" ~"cont_high",
+                                         condition == "high" ~"high")) %>% 
+  mutate(condition_low = case_when(condition == "cont_mid" ~ "cont_mid",
+                                         condition == "mid" ~"mid")) 
+
+
+sf11_total_same <- sf11_total_2 %>% 
+  filter(between_condition == "same")
+
+
+sf11_total_novel <- sf11_total_2 %>% 
+  filter(between_condition == "novel")
+```
+
+
+
+```{r}
+
+#plot average recalls for task and condition
+
+#separate control into high and mid paired 
+#no switch items in the control 
+
+#difference score error bars same 
+
+
+sf12_total_tally_same_immed <- sf11_total_same %>% 
+  group_by(subject, condition) %>% 
+  tally() 
+sf12_total_tally_same_immed
+
+
+sf12_total_same_2 <- sf11_total_same %>% 
+  dplyr:: select(subject, condition, trialcode, sum_recall, recalls) %>% 
+  group_by(subject, condition) %>% 
+  mutate(sum_recall2 = sum(recalls)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+merged_same <- merge(sf12_total_same_2,sf12_total_tally_same_immed)
+
+merged_same <- merged_same %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+difference_error_same <- merged_same %>% 
+  dplyr::select(subject, condition, prop_cond) %>% 
+  reshape(idvar = "subject", timevar = "condition", direction = "wide") %>% 
+  group_by(subject) %>% 
+  mutate(diff_cont_high = sum(prop_cond.high- prop_cond.cont_high)) %>% 
+  mutate(diff_cont_mid = sum(prop_cond.mid- prop_cond.cont_mid))
+
+
+difference_error_same2 <- difference_error_same %>% 
+  plyr::summarise(avg_diff_cont_high = mean(diff_cont_high),
+            avg_diff_cont_mid = mean(diff_cont_mid))
+
+
+library(plotrix)
+
+
+se_cont_high_same <- std.error(difference_error_same$diff_cont_high)
+
+se_cont_mid_same <- std.error(difference_error_same$diff_cont_mid)
+
+
+same_immediate_df = data.frame(condition = c("control (mid)", "mid", "control (high)", "high"), n = c(41,41,41,41), mean = c(0.2507953, 0.2642276, 0.2131495, 0.2500000), standerr = c(0.01539218, 0.01539218, 0.01614067, 0.01614067))
+
+same_immediate_df<- same_immediate_df %>% 
+  mutate(condition = fct_relevel(condition, "control (mid)", "mid", "control (high)", "high"))
+
+immed_within <- same_immediate_df %>% 
+  ggplot(aes(x = condition, y = mean)) +
+  geom_col(width = .7, aes(fill = condition), alpha = .8, color = "black", size = .3) +
+  labs(title    = "Percentage of Recalls by Condition",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean+standerr))+
+scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_x_discrete(labels=c("control" = "Control","mid"= "Low Switch", "high" = "High Switch"))+
+    scale_fill_manual(values = c("grey60", "green4", "grey20", "darkorchid4"))
+
+ggsave(plot=immed_within, width = 8, height = 5, filename="~/sf11_v1_immed_within.pdf")
+```
+
+
+
+```{r}
+#model for the just same condition - used for paper 
+
+model_condition_same_11_2<- glmer(recalls~condition_mh*condition_control +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_same)
+summary(model_condition_same_11_2)
+
+
+
+sf11_total_same<- sf11_total_same %>% 
+  mutate(condition = fct_relevel(condition, "cont_high","high", "mid", "cont_mid"))
+
+library(lme4)
+model_condition_same_11_3<- glmer(recalls~condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_same)
+summary(model_condition_same_11_3)
+tab_model(model_condition_same_11_3)
+
+```
+
+```{r}
+library(r2glmm)
+library(effectsize)
+
+r2glmm::r2beta(model_condition_same_11_2, partial = TRUE)
+
+r2glmm::r2beta(model_condition_same_11_3, partial = TRUE)
+
+```
+
+
+
+
+```{r}
+#plot average recalls for task and condition
+
+#separate control into high and mid paired 
+#no switch items in the control 
+#difference score error bars novel 
+
+
+sf12_total_tally_novel_immed <- sf11_total_novel %>% 
+  group_by(subject, condition) %>% 
+  tally() 
+sf12_total_tally_novel_immed
+
+
+sf12_total_novel_2 <- sf11_total_novel %>% 
+  dplyr:: select(subject, condition, trialcode, sum_recall, recalls) %>% 
+  group_by(subject, condition) %>% 
+  mutate(sum_recall2 = sum(recalls)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+merged_novel <- merge(sf12_total_novel_2,sf12_total_tally_novel_immed)
+
+
+merged_novel <- merged_novel %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+
+
+difference_error_novel <- merged_novel %>% 
+  dplyr::select(subject, condition, prop_cond) %>% 
+  reshape(idvar = "subject", timevar = "condition", direction = "wide") %>% 
+  group_by(subject) %>% 
+  mutate(diff_cont_high = sum(prop_cond.high- prop_cond.cont_high)) %>% 
+  mutate(diff_cont_mid = sum(prop_cond.mid- prop_cond.cont_mid))
+
+
+
+
+library(plotrix)
+
+
+se_cont_high_novel <- std.error(difference_error_novel$diff_cont_high)
+
+se_cont_mid_novel <- std.error(difference_error_novel$diff_cont_mid)
+
+
+novel_immediate_df = data.frame(condition = c("control (mid)", "mid", "control (high)", "high"), n = c(43,43,43,43), mean = c(0.2103134, 0.2078488, 0.2275025, 0.1879845), standerr = c(0.01466818, 0.01466818, 0.0160976, 0.0160976))
+
+novel_immediate_df<- novel_immediate_df %>% 
+  mutate(condition = fct_relevel(condition, "control (mid)", "mid", "control (high)", "high"))
+
+immed_within_nov <- novel_immediate_df %>% 
+  ggplot(aes(x = condition, y = mean)) +
+  geom_col(width = .7, aes(fill = condition), alpha = .8, color = "black", size = .3) +
+  labs(title    = "Percentage of Recalls by Condition",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean+standerr))+
+scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_x_discrete(labels=c("control" = "Control","mid"= "Low Switch", "high" = "High Switch"))+
+    scale_fill_manual(values = c("grey60", "green4", "grey20", "darkorchid4"))
+```
+
+
+
+
+
+```{r}
+#model for the just novel condition - used for paper 
+
+model_condition_novel_11_2<- glmer(recalls~condition_mh*condition_control +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_novel)
+summary(model_condition_novel_11_2)
+tab_model(model_condition_novel_11_2)
+
+plot_model(model_condition_novel_11_2, type = "int")
+
+r2glmm::r2beta(model_condition_novel_11_2, partial = TRUE)
+
+
+sf11_total_novel<- sf11_total_novel %>% 
+  mutate(condition = fct_relevel(condition, "high","cont_mid", "cont_high", "mid"))
+
+sf11_total_novel_cond <- sf11_total_novel %>% 
+  filter(condition == "cont_high" | condition =="high")
+
+model_condition_novel_11_3<- glmer(recalls~condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_novel_cond)
+summary(model_condition_novel_11_3)
+tab_model(model_condition_novel_11_3)
+
+plot_model(model_condition_novel_11_3, type = "pred")
+
+r2glmm::r2beta(model_condition_novel_11_3, partial = TRUE)
+
+```
+
+
+
+
+
+```{r}
+
+same_immediate_df <- same_immediate_df %>% 
+  mutate(between_condition = "same")
+
+novel_immediate_df <- novel_immediate_df %>% 
+  mutate(between_condition = "novel")
+
+
+between_condition_bind_immed_full2 <- rbind(same_immediate_df, novel_immediate_df)
+
+
+v1_immed_11_within <- between_condition_bind_immed_full2 %>% 
+  ggplot(aes(x = condition, fill = interaction(between_condition,condition), y = mean)) +
+  geom_bar(position="dodge", stat="identity", color = "black", size = .3, alpha = .8) +
+  labs(title    = "Percentage of Recalls by Condition and Task",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean +standerr))+
+  scale_y_continuous(labels = scales::percent, expand = c(0,0))+
+  scale_x_discrete(labels=c("cont_mid" = "Control (Low)","mid"= "Low Switch", "cont_high" = "Control (High)", "high" = "High Switch"))+
+  scale_fill_manual(name = "Condition", values=c("grey60", "grey20", "darkseagreen2", "darkgreen", "grey60", "grey20","lavender", "darkorchid4")) +
+  facet_wrap(.~between_condition)
+
+ggsave(plot=v1_immed_11_within, width = 8, height = 5, filename="~/v1_immed_11_within.pdf")
+
+```
+
+
+
+
+
+
+
+
+```{r}
+#these models used for paper 
+
+model_condition_total_11_2<- glmer(recalls~condition*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_2)
+summary(model_condition_total_11_2)
+
+plot_model(model_condition_total_11_2, type = "int")
+
+
+sf11_total_2_high <- sf11_total_2 %>% 
+  filter(condition == "high" | condition == "cont_high")
+
+
+model_condition_total_11_2_high<- glmer(recalls~condition*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_2_high)
+summary(model_condition_total_11_2_high)
+tab_model(model_condition_total_11_2_high)
+
+plot_model(model_condition_total_11_2_high, type = "int")
+
+r2glmm::r2beta(model_condition_total_11_2_high, partial = TRUE)
+
+
+
+sf11_total_2<- sf11_total_2 %>% 
+  mutate(condition_mh = fct_relevel(condition_mh, "mid","high"))
+
+
+
+
+
+model_condition_total_11_3<- glmer(recalls~condition_mh*condition_control*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_2)
+summary(model_condition_total_11_3)
+tab_model(model_condition_total_11_3)
+
+plot_model(model_condition_total_11_3, type = "int")
+
+r2glmm::r2beta(model_condition_total_11_3, partial = TRUE)
+
+
+model_condition_total_11_4<- glmer(recalls~between_condition*condition_mh +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_2)
+summary(model_condition_total_11_4)
+
+plot_model(model_condition_total_11_3, type = "int")
+
+r2glmm::r2beta(model_condition_total_11_4, partial = TRUE)
+
+
+```
+
+
+
+
+```{r}
+#model 2x2 mid/high and switch/repeat 
+
+sf11_total_3<-sf11_total_2 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat")
+
+
+
+#same
+
+sf11_total_same_transition<-sf11_total_3 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat") %>% 
+  filter(between_condition == "same")
+
+model_transition_11_same<- glmer(recalls~condition*task_switch + list_half+(1|subject)+ (1|word_enc), family = binomial, data = sf11_total_same_transition)
+summary(model_transition_11_same)
+
+
+plot_model(model_transition_11_same, type = "int")
+
+#novel 
+
+sf11_total_nov_transition<-sf11_total_3 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat") %>% 
+  filter(between_condition == "novel")
+
+model_transition_11_novel<- glmer(recalls~condition*task_switch +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_nov_transition)
+summary(model_transition_11_novel)
+
+
+plot_model(model_transition_11_novel, type = "int")
+
+
+#total
+
+model_transition_11<- glmer(recalls~condition*task_switch*between_condition +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_3)
+summary(model_transition_11)
+
+
+plot_model(model_transition_11, type = "int")
+
+
+sf11_total_3_mid <- sf11_total_3 %>% 
+  filter(condition == "high") %>% 
+  filter(between_condition == "novel")
+
+
+model_transition_11_mid<- glmer(recalls~task_switch +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_3_mid)
+summary(model_transition_11_mid)
+
+
+plot_model(model_transition_11_mid, type = "pred")
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+#boundary vs preboundary- supplementary materials 
+
+detach(package:Rmisc)
+detach(package:plyr)
+
+
+sf11_total_mid_spc_3<- sf11_total_2 %>% 
+  filter(condition == "mid") %>% 
+  filter(trialnum == "5" | trialnum == "6" |trialnum == "8" |trialnum == "9" |trialnum == "10" |trialnum == "12"| trialnum == "13" |trialnum == "14"| trialnum == "16" |trialnum == "17" |trialnum == "18" |trialnum == "20") %>%
+  mutate(trialnum_new = case_when(trialnum == "5" ~ "boundary",
+                                  trialnum == "6" ~ "postboundary",
+                               trialnum == "8" ~ "preboundary",
+                               trialnum == "9" ~ "boundary",
+                               trialnum == "10" ~ "postboundary",
+                               trialnum == "12" ~ "preboundary",
+                               trialnum == "13" ~ "boundary",
+                               trialnum == "14" ~ "postboundary",
+                               trialnum == "16" ~ "preboundary",
+                               trialnum == "17" ~ "boundary",
+                               trialnum == "18" ~ "postboundary",
+                               trialnum == "20" ~ "preboundary")) 
+
+
+
+spc_mid_11_tally_immed2 <- sf11_total_mid_spc_3 %>% 
+  group_by(subject, trialnum_new) %>% 
+  tally() 
+spc_mid_11_tally_immed2
+
+
+spc_mid_11_immed2 <- sf11_total_mid_spc_3 %>% 
+  dplyr:: select(subject, trialnum_new, between_condition, recalls) %>% 
+  group_by(subject, trialnum_new, between_condition) %>% 
+  mutate(sum_recall2 = sum(recalls)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+
+merged_spc_immed <- merge(spc_mid_11_immed2,spc_mid_11_tally_immed2)
+
+
+merged_spc_immed <- merged_spc_immed %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+
+merged_spc_immed<- merged_spc_immed %>% 
+  mutate(trialnum_new = fct_relevel(trialnum_new, "preboundary", "boundary", "postboundary"))
+
+
+library(Rmisc)
+
+spc_mid_11_immed <- summarySEwithin(merged_spc_immed, measurevar="prop_cond", withinvars = c("trialnum_new", "between_condition"),idvar = "subject", na.rm=FALSE, conf.interval=.95)
+
+
+v1_spc_sf11_bound_immed <- spc_mid_11_immed %>% 
+  ggplot(aes(x = trialnum_new, fill = interaction(between_condition,trialnum_new), y = prop_cond)) +
+  geom_bar(position="dodge", stat="identity", color = "black", size = .3, alpha = .8) +
+  labs(title    = "Percentage of Recalls by Condition and Task",
+         x        = "Transition Type",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=prop_cond-se, ymax=prop_cond+se))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_fill_manual(name = "Transition Type", values=c("grey90", "grey90", "grey60", "grey60", "grey20", "grey20")) +
+  facet_wrap(.~between_condition)
+
+ggsave(plot=v1_spc_sf11_bound_immed, width = 8, height = 5, filename="~/v1_spc_sf11_bound_immed_se.pdf")
+```
+
+
+```{r}
+#models for boundary vs preboundary 
+
+sf11_total_mid_spc_3<- sf11_total_mid_spc_3 %>% 
+  mutate(trialnum_new = fct_relevel(trialnum_new, "boundary", "preboundary", "postboundary"))
+
+
+sf11_total_mid_spc_4 <- sf11_total_mid_spc_3 %>% 
+  filter(between_condition == "same")
+
+
+sf11_total_mid_spc_3_model_total<- glmer(recalls~trialnum_new+ blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_mid_spc_4)
+summary(sf11_total_mid_spc_3_model_total)
+
+confint(sf11_total_mid_spc_3_model_total)
+
+plot_model(sf11_total_mid_spc_3_model_total, type = "pred")
+```
+
+
+
+
+```{r}
+#prepare the data for temporal clustering by adding necessary columns to the recall dataframe 
+
+add_columns <- function(recall_df, enc_df) {
+  selected_enc_df <- enc_df[, c("condition", "trialcode", "subject", "blocknum", "list_half", "task_switch","trialnum", "blockcode", "word_enc")]
+  merged_df <- left_join(recall_df, selected_enc_df, by = c("V3" = "word_enc"))
+  return(merged_df)
+}
+
+# Apply the function for each pair of recall and encoding data frames
+merged_recall_list <- Map(add_columns, recall11_df_immed, sf11_by_sub)
+
+
+# Identify the common columns across all data frames
+common_columns <- Reduce(intersect, lapply(merged_recall_list, colnames))
+
+# Ensure that each data frame in the list contains only the common columns
+cleaned_recall_list <- lapply(merged_recall_list, function(df) df[, common_columns])
+
+# Combine the cleaned data frames
+recall11_df_immed2 <- do.call("rbind", cleaned_recall_list)
+
+```
+
+
+```{r}
+#set up for temporal clustering for MATLAB 
+#encoding and retrieval for just blocks with mid in it 
+#Same
+
+sf11_midblocks_same <- sf11_total_encodingonly_new %>% 
+  filter(blockcode == "control_mid_same" | blockcode == "mid_control_same")
+
+
+sf10_mid_same <- split(sf11_midblocks_same,sf11_midblocks_same$subject)
+
+
+encod_list_mid_same = list()
+for (i in sf10_mid_same){
+  encod_vert<- unstack(i, pool_number~blocknum)
+  nrow <- max(sapply(encod_vert, length))
+  encod_vert <- sapply(encod_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  encod_hor <- t(encod_vert) #transposes it 
+  encod_list_mid_same[[length(encod_list_mid_same)+1]] = encod_hor}
+
+
+names(encod_list_mid_same)  <- paste("mid_enc_same_", c(137455 ,138853 ,139435 ,142837 ,146857 ,149335 ,149395 ,149437 ,150661 ,151921 ,152983 ,154801 ,156385 ,156541 ,156595 ,156691 ,156739 ,156751 ,156961 ,156979 ,157027 ,157057 ,157063 ,157069 ,157159 ,157171 ,157261 ,157327 ,157339 ,157381 ,157411 ,157435 ,157447 ,157471,157489, 157549, 157603, 157621, 157639, 157663, 157837), sep="")
+
+
+
+
+encod_list_mid_same
+
+library(MASS)
+
+encode_list_same <- do.call(rbind, encod_list_mid_same)
+
+write.matrix(encode_list_same, file="encode_list11_mid_same.csv")
+
+
+#######################
+#recall for mid, same 
+
+recall11_df_immed2_mid_same <- recall11_df_immed2 %>% 
+  filter(blockcode == "control_mid_same" | blockcode == "mid_control_same")
+  
+
+split_rec_mid11_same <- split(recall11_df_immed2_mid_same,recall11_df_immed2_mid_same$subject)
+
+
+
+recall_list_mid_same = list()
+for (i in split_rec_mid11_same){
+  recall_vert<- unstack(i, V2~blocknum)
+  recall_vert <- sapply(recall_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  recall_hor <- t(recall_vert) #transposes it 
+  recall_hor[is.na(recall_hor)] <- 0
+  recall_list_mid_same[[length(recall_list_mid_same)+1]] = recall_hor}
+
+
+
+
+names(recall_list_mid_same)  <- paste("mid_rec_",  c(137455 ,138853 ,139435 ,142837 ,146857 ,149335 ,149395 ,149437 ,150661 ,151921 ,152983 ,154801 ,156385 ,156541 ,156595 ,156691 ,156739 ,156751 ,156961 ,156979 ,157027 ,157057 ,157063 ,157069 ,157159 ,157171 ,157261 ,157327 ,157339 ,157381 ,157411 ,157435 ,157447 ,157471,157489, 157549, 157603, 157621, 157639, 157663, 157837), sep="")
+recall_list_mid_same <- noquote(recall_list_mid_same)
+
+
+
+
+recall_list <- do.call(rbind, recall_list_mid_same)
+
+
+
+
+library(MASS)
+
+write.matrix(recall_list, file="recall_list_11_mid_same2.csv")
+```
+
+
+
+```{r}
+#temporal clustering for mid block 
+temp_clustering_mid_same <- c(0.6294,
+    0.7248,
+    0.6681,
+    0.5629,
+    0.5605,
+    0.6591,
+    0.6255,
+    0.5138,
+    0.6104,
+    0.6461,
+    0.5482,
+    0.6185,
+    0.5719,
+    0.6613,
+    0.5038,
+    0.6138,
+    0.4907,
+    0.5577,
+    0.5731,
+    0.6366,
+    0.6410,
+    0.5782,
+    0.6771,
+    0.5283,
+    0.4851,
+    0.6201,
+    0.5966,
+    0.5560,
+    0.7666,
+    0.5604,
+    0.5135,
+    0.7081,
+    0.6737,
+    0.5219,
+    0.6758,
+    0.6701,
+    0.5893,
+    0.6938,
+    0.5371,
+    0.4529,
+    0.5647)
+
+mean(temp_clustering_mid_same, na.rm = TRUE)
+sd(temp_clustering_mid_same, na.rm = TRUE)/ sqrt(length(temp_clustering_mid_same))
+```
+
+
+```{r}
+#set up for temporal clustering for MATLAB 
+#encoding and retrieval for just blocks with high in it 
+#Same
+
+sf11_highblocks_same <- sf11_total_encodingonly_new %>% 
+  filter(blockcode == "control_high_same" | blockcode == "high_control_same")
+
+
+sf10_high_same <- split(sf11_highblocks_same,sf11_highblocks_same$subject)
+
+
+encod_list_high_same = list()
+for (i in sf10_high_same){
+  encod_vert<- unstack(i, pool_number~blocknum)
+  nrow <- max(sapply(encod_vert, length))
+  encod_vert <- sapply(encod_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  encod_hor <- t(encod_vert) #transposes it 
+  encod_list_high_same[[length(encod_list_high_same)+1]] = encod_hor}
+
+
+names(encod_list_high_same)  <- paste("high_enc_same_", c(137455 ,138853 ,139435 ,142837 ,146857 ,149335 ,149395 ,149437 ,150661 ,151921 ,152983 ,154801 ,156385 ,156541 ,156595 ,156691 ,156739 ,156751 ,156961 ,156979 ,157027 ,157057 ,157063 ,157069 ,157159 ,157171 ,157261 ,157327 ,157339 ,157381 ,157411 ,157435 ,157447 ,157471,157489, 157549, 157603, 157621, 157639, 157663, 157837), sep="")
+
+
+
+
+encod_list_high_same
+
+library(MASS)
+
+encode_list_same <- do.call(rbind, encod_list_high_same)
+
+write.matrix(encode_list_same, file="encode_list11_high_same.csv")
+
+
+#######################
+#recall for high, same 
+
+recall11_df_immed2_high_same <- recall11_df_immed2 %>% 
+  filter(blockcode == "control_high_same" | blockcode == "high_control_same")
+  
+
+split_rec_high11_same <- split(recall11_df_immed2_high_same,recall11_df_immed2_high_same$subject)
+
+
+
+recall_list_high_same = list()
+for (i in split_rec_high11_same){
+  recall_vert<- unstack(i, V2~blocknum)
+  recall_vert <- sapply(recall_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  recall_hor <- t(recall_vert) #transposes it 
+  recall_hor[is.na(recall_hor)] <- 0
+  recall_list_high_same[[length(recall_list_high_same)+1]] = recall_hor}
+
+
+
+
+names(recall_list_high_same)  <- paste("high_rec_",  c(137455 ,138853 ,139435 ,142837 ,146857 ,149335 ,149395 ,149437 ,150661 ,151921 ,152983 ,154801 ,156385 ,156541 ,156595 ,156691 ,156739 ,156751 ,156961 ,156979 ,157027 ,157057 ,157063 ,157069 ,157159 ,157171 ,157261 ,157327 ,157339 ,157381 ,157411 ,157435 ,157447 ,157471,157489, 157549, 157603, 157621, 157639, 157663, 157837), sep="")
+recall_list_high_same <- noquote(recall_list_high_same)
+
+
+
+
+recall_list <- do.call(rbind, recall_list_high_same)
+
+
+
+
+library(MASS)
+
+write.matrix(recall_list, file="recall_list_11_high_same2.csv")
+```
+
+
+```{r}
+temp_clustering_high_same <- c(
+    0.5913,
+    0.5412,
+    0.5424,
+    0.5107,
+    0.6055,
+    0.4648,
+    0.6156,
+    0.6725,
+    0.5659,
+    0.5806,
+    0.5839,
+    0.6848,
+    0.5282,
+       NaN,
+    0.5872,
+    0.6386,
+    0.6223,
+    0.4080,
+    0.5349,
+    0.5391,
+    0.5076,
+    0.5799,
+    0.6160,
+    0.6603,
+    0.4538,
+    0.7401,
+    0.5735,
+    0.4770,
+    0.4298,
+    0.5097,
+    0.5944,
+    0.8118,
+    0.5348,
+    0.5236,
+    0.4721,
+    0.6364,
+    0.5932,
+    0.6683,
+    0.5731,
+    0.6140,
+    0.5145)
+
+mean(temp_clustering_high_same, na.rm = TRUE)
+sd(temp_clustering_high_same, na.rm = TRUE)/ sqrt(length(temp_clustering_high_same))
+
+```
+
+
+
+```{r}
+temp_clustering_same_v1 <- c(0.6294,
+    0.7248,
+    0.6681,
+    0.5629,
+    0.5605,
+    0.6591,
+    0.6255,
+    0.5138,
+    0.6104,
+    0.6461,
+    0.5482,
+    0.6185,
+    0.5719,
+    0.6613,
+    0.5038,
+    0.6138,
+    0.4907,
+    0.5577,
+    0.5731,
+    0.6366,
+    0.6410,
+    0.5782,
+    0.6771,
+    0.5283,
+    0.4851,
+    0.6201,
+    0.5966,
+    0.5560,
+    0.7666,
+    0.5604,
+    0.5135,
+    0.7081,
+    0.6737,
+    0.5219,
+    0.6758,
+    0.6701,
+    0.5893,
+    0.6938,
+    0.5371,
+    0.4529,
+    0.5647,
+    0.5913,
+    0.5412,
+    0.5424,
+    0.5107,
+    0.6055,
+    0.4648,
+    0.6156,
+    0.6725,
+    0.5659,
+    0.5806,
+    0.5839,
+    0.6848,
+    0.5282,
+       NaN,
+    0.5872,
+    0.6386,
+    0.6223,
+    0.4080,
+    0.5349,
+    0.5391,
+    0.5076,
+    0.5799,
+    0.6160,
+    0.6603,
+    0.4538,
+    0.7401,
+    0.5735,
+    0.4770,
+    0.4298,
+    0.5097,
+    0.5944,
+    0.8118,
+    0.5348,
+    0.5236,
+    0.4721,
+    0.6364,
+    0.5932,
+    0.6683,
+    0.5731,
+    0.6140,
+    0.5145)
+
+
+mean(temp_clustering_same_v1, na.rm = TRUE)
+sd(temp_clustering_same_v1, na.rm = TRUE)/ sqrt(length(temp_clustering_same_v1))
+```
+
+
+
+```{r}
+#set up for temporal clustering for MATLAB 
+#encoding and retrieval for just blocks with mid in it 
+#novel
+
+sf11_midblocks_novel <- sf11_total_encodingonly_new %>% 
+  filter(blockcode == "control_mid_novel" | blockcode == "mid_control_novel")
+
+
+sf10_mid_novel <- split(sf11_midblocks_novel,sf11_midblocks_novel$subject)
+
+
+encod_list_mid_novel = list()
+for (i in sf10_mid_novel){
+  encod_vert<- unstack(i, pool_number~blocknum)
+  nrow <- max(sapply(encod_vert, length))
+  encod_vert <- sapply(encod_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  encod_hor <- t(encod_vert) #transposes it 
+  encod_list_mid_novel[[length(encod_list_mid_novel)+1]] = encod_hor}
+
+
+names(encod_list_mid_novel)  <- paste("mid_enc_novel_", c( 145912 ,148570, 149512, 151762,152818 ,153382 ,154174 ,154264 ,154348 ,154438 ,154444 ,154906 ,154984 ,155560 ,156130 ,156418 ,156436 ,156544 ,156550 ,156586 ,156604 ,156784 ,156970 ,156988 ,157000 ,157198 ,157210,157246 ,157270 ,157354 ,157432 ,157438 ,157456 ,157474 ,157486 ,157498 ,157648 ,157696 ,157912 ,158350 ,742243848 ,742243852 ,742243854), sep="")
+
+
+
+
+encod_list_mid_novel
+
+library(MASS)
+
+encode_list_novel <- do.call(rbind, encod_list_mid_novel)
+
+write.matrix(encode_list_novel, file="encode_list11_mid_novel2.csv")
+
+
+#######################
+#recall for mid, novel 
+
+recall11_df_immed2_mid_novel <- recall11_df_immed2 %>% 
+  filter(blockcode == "control_mid_novel" | blockcode == "mid_control_novel")
+  
+
+split_rec_mid11_novel <- split(recall11_df_immed2_mid_novel,recall11_df_immed2_mid_novel$subject)
+
+
+
+recall_list_mid_novel = list()
+for (i in split_rec_mid11_novel){
+  recall_vert<- unstack(i, V2~blocknum)
+  recall_vert <- sapply(recall_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  recall_hor <- t(recall_vert) #transposes it 
+  recall_hor[is.na(recall_hor)] <- 0
+  recall_list_mid_novel[[length(recall_list_mid_novel)+1]] = recall_hor}
+
+
+
+
+names(recall_list_mid_novel)  <- paste("mid_rec_",  c( 145912 ,148570, 149512, 151762,152818 ,153382 ,154174 ,154264 ,154348 ,154438 ,154444 ,154906 ,154984 ,155560 ,156130 ,156418 ,156436 ,156544 ,156550 ,156586 ,156604 ,156784 ,156970 ,156988 ,157000 ,157198 ,157210,157246 ,157270 ,157354 ,157432 ,157438 ,157456 ,157474 ,157486 ,157498 ,157648 ,157696 ,157912 ,158350 ,742243848 ,742243852 ,742243854), sep="")
+recall_list_mid_novel <- noquote(recall_list_mid_novel)
+
+
+recall_list <- do.call(rbind, recall_list_mid_novel)
+
+
+
+
+library(MASS)
+
+write.matrix(recall_list, file="recall_list_11_mid_novel3.csv")
+```
+
+```{r}
+temp_clustering_mid_novel <- c( 0.5586,
+    0.7019,
+    0.8088,
+    0.9773,
+    0.6331,
+    0.6501,
+    0.7295,
+    0.6630,
+    0.5439,
+    0.6396,
+    0.7151,
+    0.7514,
+    0.5306,
+    0.7012,
+    0.8864,
+    0.6320,
+    0.6272,
+    0.5975,
+    0.6163,
+    0.6034,
+    0.7672,
+    0.5739,
+    0.4773,
+    0.7610,
+    0.6844,
+    0.5185,
+    0.6524,
+    0.6253,
+    0.6223,
+    0.5211,
+    0.5104,
+    0.5902,
+    0.7207,
+    0.5080,
+    0.6682,
+    0.6447,
+    0.5158,
+    0.5585,
+    0.6618,
+    0.6323,
+    0.6088,
+    0.4299,
+    0.6889)
+
+
+mean(temp_clustering_mid_novel, na.rm = TRUE)
+sd(temp_clustering_mid_novel, na.rm = TRUE)/ sqrt(length(temp_clustering_mid_novel))
+```
+
+```{r}
+#set up for temporal clustering for MATLAB 
+#encoding and retrieval for just blocks with high in it 
+#novel
+
+sf11_highblocks_novel <- sf11_total_encodingonly_new %>% 
+  filter(blockcode == "control_high_novel" | blockcode == "high_control_novel")
+
+
+sf10_high_novel <- split(sf11_highblocks_novel,sf11_highblocks_novel$subject)
+
+
+encod_list_high_novel = list()
+for (i in sf10_high_novel){
+  encod_vert<- unstack(i, pool_number~blocknum)
+  nrow <- max(sapply(encod_vert, length))
+  encod_vert <- sapply(encod_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  encod_hor <- t(encod_vert) #transposes it 
+  encod_list_high_novel[[length(encod_list_high_novel)+1]] = encod_hor}
+
+
+names(encod_list_high_novel)  <- paste("high_enc_novel_", c( 145912 ,148570, 149512, 151762,152818 ,153382 ,154174 ,154264 ,154348 ,154438 ,154444 ,154906 ,154984 ,155560 ,156130 ,156418 ,156436 ,156544 ,156550 ,156586 ,156604 ,156784 ,156970 ,156988 ,157000 ,157198 ,157210,157246 ,157270 ,157354 ,157432 ,157438 ,157456 ,157474 ,157486 ,157498 ,157648 ,157696 ,157912 ,158350 ,742243848 ,742243852 ,742243854), sep="")
+
+
+
+
+encod_list_high_novel
+
+library(MASS)
+
+encode_list_novel <- do.call(rbind, encod_list_high_novel)
+
+write.matrix(encode_list_novel, file="encode_list11_high_novel_2.csv")
+
+
+#######################
+#recall for high, novel 
+
+recall11_df_immed2_high_novel <- recall11_df_immed2 %>% 
+  filter(blockcode == "control_high_novel" | blockcode == "high_control_novel")
+  
+
+split_rec_high11_novel <- split(recall11_df_immed2_high_novel,recall11_df_immed2_high_novel$subject)
+
+
+
+recall_list_high_novel = list()
+for (i in split_rec_high11_novel){
+  recall_vert<- unstack(i, V2~blocknum)
+  recall_vert <- sapply(recall_vert, function(x) {
+  length(x) <- 24
+  x }) 
+  recall_hor <- t(recall_vert) #transposes it 
+  recall_hor[is.na(recall_hor)] <- 0
+  recall_list_high_novel[[length(recall_list_high_novel)+1]] = recall_hor}
+
+
+
+
+names(recall_list_high_novel)  <- paste("high_rec_",  c(145912 ,148570, 149512, 151762,152818 ,153382 ,154174 ,154264 ,154348 ,154438 ,154444 ,154906 ,154984 ,155560 ,156130 ,156418 ,156436 ,156544 ,156550 ,156604 ,156784 ,156970 ,156988 ,157000 ,157198 ,157210,157246 ,157270 ,157354 ,157432 ,157438 ,157456 ,157474 ,157486 ,157498 ,157648 ,157696 ,157912 ,158350 ,742243848 ,742243852 ,742243854), sep="")
+recall_list_high_novel <- noquote(recall_list_high_novel)
+
+
+recall_list <- do.call(rbind, recall_list_high_novel)
+
+
+#156550 HERE ,156604
+
+156586
+
+
+library(MASS)
+
+write.matrix(recall_list, file="recall_list_11_high_novel_2.csv")
+```
+
+```{r}
+temp_clustering_high_novel <- c(0.6218,
+    0.7580,
+    0.5822,
+    0.6135,
+    0.6605,
+    0.6508,
+    0.6780,
+    0.6798,
+    0.7765,
+    0.6772,
+    0.6140,
+    0.6477,
+    0.7175,
+    0.6614,
+    0.8262,
+    0.6946,
+    0.7339,
+    0.4915,
+    0.6327,
+       NaN,
+    0.7997,
+    0.7396,
+    0.7655,
+    0.7857,
+    0.6811,
+    0.5203,
+    0.6447,
+    0.6798,
+    0.7461,
+    0.5364,
+    0.7273,
+    0.7668,
+    0.5689,
+    0.6760,
+    0.7706,
+    0.7299,
+    0.5301,
+    0.6069,
+    0.7443,
+    0.5735,
+    0.4268,
+    0.6687,
+    0.8033)
+
+mean(temp_clustering_high_novel, na.rm = TRUE)
+sd(temp_clustering_high_novel, na.rm = TRUE)/ sqrt(length(temp_clustering_high_novel))
+```
+
+
+```{r}
+temp_clustering_novel_v1 <- c( 0.5586,
+    0.7019,
+    0.8088,
+    0.9773,
+    0.6331,
+    0.6501,
+    0.7295,
+    0.6630,
+    0.5439,
+    0.6396,
+    0.7151,
+    0.7514,
+    0.5306,
+    0.7012,
+    0.8864,
+    0.6320,
+    0.6272,
+    0.5975,
+    0.6163,
+    0.6034,
+    0.7672,
+    0.5739,
+    0.4773,
+    0.7610,
+    0.6844,
+    0.5185,
+    0.6524,
+    0.6253,
+    0.6223,
+    0.5211,
+    0.5104,
+    0.5902,
+    0.7207,
+    0.5080,
+    0.6682,
+    0.6447,
+    0.5158,
+    0.5585,
+    0.6618,
+    0.6323,
+    0.6088,
+    0.4299,
+    0.6889,
+    0.6218,
+    0.7580,
+    0.5822,
+    0.6135,
+    0.6605,
+    0.6508,
+    0.6780,
+    0.6798,
+    0.7765,
+    0.6772,
+    0.6140,
+    0.6477,
+    0.7175,
+    0.6614,
+    0.8262,
+    0.6946,
+    0.7339,
+    0.4915,
+    0.6327,
+       NaN,
+    0.7997,
+    0.7396,
+    0.7655,
+    0.7857,
+    0.6811,
+    0.5203,
+    0.6447,
+    0.6798,
+    0.7461,
+    0.5364,
+    0.7273,
+    0.7668,
+    0.5689,
+    0.6760,
+    0.7706,
+    0.7299,
+    0.5301,
+    0.6069,
+    0.7443,
+    0.5735,
+    0.4268,
+    0.6687,
+    0.8033)
+    
+
+mean(temp_clustering_novel_v1, na.rm = TRUE)
+sd(temp_clustering_novel_v1, na.rm = TRUE)/ sqrt(length(temp_clustering_novel_v1))
+
+length(temp_clustering_novel_v1)
+```
+
+
+```{r}
+#greater than chance-level clust 
+
+t.test(temp_clustering_high_novel, mu = .5)
+
+t.test(temp_clustering_high_same, mu = .5)
+
+t.test(temp_clustering_mid_novel, mu = .5)
+
+t.test(temp_clustering_mid_same, mu = .5)
+```
+
+
+
+```{r}
+#compare 
+
+t.test(temp_clustering_high_novel, temp_clustering_high_same)
+#participants recalled more items in order during the high condition in the novel condition than in the high condition in the switch back condition 
+
+
+t.test(temp_clustering_mid_novel, temp_clustering_mid_same)
+#participants recalled more items in order during the mid condition in the novel condition than in the mid condition in the switch back condition 
+
+
+t.test(temp_clustering_high_same, temp_clustering_mid_same)
+
+
+t.test(temp_clustering_mid_novel, temp_clustering_high_novel)
+
+
+t.test(temp_clustering_novel_v1, temp_clustering_same_v1)
+
+
+cd_df_novel <- data.frame(between_condition = rep("novel",times = 86),
+                    temp_score = temp_clustering_novel_v1)
+
+
+cd_df_same <- data.frame(between_condition = rep("same",times = 82),
+                    temp_score = temp_clustering_same_v1)
+
+
+cd_df_both<- rbind(cd_df_same, cd_df_novel)
+
+cohensD(temp_score~between_condition, cd_df_both)
+
+```
+
+
+
+
+
+```{r}
+#plot temporal clustering 
+#difference score error bars novel 
+
+temp_clust_11v1 <- import("temp_clustering_sf11_v1.csv")
+
+
+
+temp_clust_11v1_2 <- temp_clust_11v1 %>% 
+  group_by(condition, between_condition, subject) %>% 
+  summarise(mean_temp_clust = mean(temp_clust_score)) 
+
+difference_error_temp_clust <- temp_clust_11v1 %>% 
+  unite(condition2, condition:between_condition, remove = FALSE) %>% 
+  dplyr::select(subject, condition2, temp_clust_score) %>% 
+  reshape(idvar = "subject", timevar = "condition2", direction = "wide") %>% 
+  group_by(subject) %>% 
+  mutate(diff_same = sum(temp_clust_score.low_same- temp_clust_score.high_same)) %>% 
+  mutate(diff_novel = sum(temp_clust_score.low_novel- temp_clust_score.high_novel))
+
+
+
+install.packages("plotrix")
+library(plotrix)
+
+
+se_cont_temp_same <- std.error(difference_error_temp_clust$diff_same)
+
+se_cont_temp_nov <- std.error(difference_error_temp_clust$diff_novel)
+
+
+temp_clust_within_df = data.frame(condition = c("low", "high","low","high"),between_condition = c("same", "same", "novel", "novel"), mean = c(0.6053634, 0.5725350, 0.6397326, 0.6728310), standerr = c(0.02040952, 0.02040952, 0.0200526, 0.0200526))
+
+temp_clust_within_df<- temp_clust_within_df %>% 
+  mutate(condition = fct_relevel(condition, "low", "high" ))
+
+v1_clust_11_within <- temp_clust_within_df %>% 
+  ggplot(aes(x = condition, fill = interaction(between_condition,condition), y = mean)) +
+  geom_bar(position="dodge", stat="identity", color = "black", size = .3, alpha = .8) +
+  labs(title    = "Temporal Clustering",
+         x        = "Condition",
+         y        = "Temporal Clustering Score")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean+standerr))+
+  scale_y_continuous(expand = c(0,0))+
+  scale_x_discrete(labels=c("cont_mid" = "Control (Low)","mid"= "Low Switch", "cont_high" = "Control (High)", "high" = "High Switch"))+
+  scale_fill_manual(name = "Condition", values=c("grey60", "grey20", "darkseagreen2", "darkgreen", "grey60", "grey20","lavender", "darkorchid4")) +
+  facet_wrap(.~between_condition)+
+  coord_cartesian(ylim = c(.5, .7))
+
+ggsave(plot=v1_clust_11_within, width = 8, height = 5, filename="~/v1_clust_11_within.pdf")
+
+```
+
+
+
+```{r}
+
+#model 
+model_temp_cluster<- lmer(temp_clust_score~condition*between_condition+ (1|subject),  data = temp_clust_11v1)
+summary(model_temp_cluster)
+
+plot_model(model_temp_cluster, type = "int")
+```
+
+
+#FINAL RECALL
+
+
+```{r}
+#most important code chunk.
+library(stringr)
+detach(package:Rmisc) 
+detach(package:plyr) #MUST RUN THIS
+
+split_enc_11 <- split(sf11_total_encodingonly_between,sf11_total_encodingonly_between$subject)
+
+#list of all subjects individual recall data
+recall11_df = list(recall_data_final_137455,recall_data_final_138853, recall_data_final_139435, recall_data_final_142837, recall_data_final_145912, recall_data_final_146857, recall_data_final_148570, recall_data_final_149335, recall_data_final_149395, recall_data_final_149437, recall_data_final_149512, recall_data_final_150661, recall_data_final_151762, recall_data_final_151921, recall_data_final_152983, recall_data_final_153382, recall_data_final_154174, recall_data_final_154264, recall_data_final_154348, recall_data_final_154444, recall_data_final_154801, recall_data_final_154906, recall_data_final_154984, recall_data_final_155560, recall_data_final_156130, recall_data_final_156385, recall_data_final_156418, recall_data_final_156436, recall_data_final_156541, recall_data_final_156544, recall_data_final_156550, recall_data_final_156586, recall_data_final_156595, recall_data_final_156604, recall_data_final_156691, recall_data_final_156739, recall_data_final_156751, recall_data_final_156784, recall_data_final_156961, recall_data_final_156970, recall_data_final_156979, recall_data_final_156988, recall_data_final_157000, recall_data_final_157027, recall_data_final_157057, recall_data_final_157063, recall_data_final_157069, recall_data_final_157159, recall_data_final_157171, recall_data_final_157198, recall_data_final_157210, recall_data_final_157261, recall_data_final_157270, recall_data_final_157327, recall_data_final_157339, recall_data_final_157354,recall_data_final_157381, recall_data_final_157411, recall_data_final_157432, recall_data_final_157435, recall_data_final_157438, recall_data_final_157447, recall_data_final_157456, recall_data_final_157471, recall_data_final_157474, recall_data_final_157486, recall_data_final_157489, recall_data_final_157498, recall_data_final_157549, recall_data_final_157603, recall_data_final_157621, recall_data_final_157621, recall_data_final_157639, recall_data_final_157648, recall_data_final_157663, recall_data_final_157696, recall_data_final_157837, recall_data_final_157912, recall_data_final_158350, recall_data_final_742243848, recall_data_final_742243852, recall_data_final_742243854, recall_data_final_154438, recall_data_final_157246, recall_data_final_152818)
+
+
+
+#list of task data 
+sf11_by_sub <- list(split_enc_11$'137455',split_enc_11$'138853', split_enc_11$'139435', split_enc_11$'142837', split_enc_11$'145912', split_enc_11$'146857', split_enc_11$'148570', split_enc_11$'149335', split_enc_11$'149395', split_enc_11$'149437', split_enc_11$'149512', split_enc_11$'150661', split_enc_11$'151762', split_enc_11$'151921', split_enc_11$'152983', split_enc_11$'153382', split_enc_11$'154174', split_enc_11$'154264', split_enc_11$'154348', split_enc_11$'154444', split_enc_11$'154801', split_enc_11$'154906', split_enc_11$'154984', split_enc_11$'155560', split_enc_11$'156130', split_enc_11$'156385', split_enc_11$'156418', split_enc_11$'156436', split_enc_11$'156541', split_enc_11$'156544', split_enc_11$'156550', split_enc_11$'156586', split_enc_11$'156595', split_enc_11$'156604', split_enc_11$'156691', split_enc_11$'156739', split_enc_11$'156751', split_enc_11$'156784', split_enc_11$'156961', split_enc_11$'156970', split_enc_11$'156979', split_enc_11$'156988', split_enc_11$'157000', split_enc_11$'157027', split_enc_11$'157057', split_enc_11$'157063', split_enc_11$'157069', split_enc_11$'157159', split_enc_11$'157171', split_enc_11$'157198', split_enc_11$'157210', split_enc_11$'157261', split_enc_11$'157270', split_enc_11$'157327', split_enc_11$'157339', split_enc_11$'157354',split_enc_11$'157381', split_enc_11$'157411', split_enc_11$'157432', split_enc_11$'157435', split_enc_11$'157438', split_enc_11$'157447', split_enc_11$'157456', split_enc_11$'157471', split_enc_11$'157474', split_enc_11$'157486', split_enc_11$'157489', split_enc_11$'157498', split_enc_11$'157549', split_enc_11$'157603', split_enc_11$'157621', split_enc_11$'157621', split_enc_11$'157639', split_enc_11$'157648', split_enc_11$'157663', split_enc_11$'157696', split_enc_11$'157837', split_enc_11$'157912', split_enc_11$'158350', split_enc_11$'742243848', split_enc_11$'742243852', split_enc_11$'742243854', split_enc_11$'154438', split_enc_11$'157246', split_enc_11$'152818')
+
+
+#for every subject:
+c = 0 
+for (ssid in array(1:length(recall11_df))){
+    i = sf11_by_sub[[ssid]]
+    j = recall11_df[[ssid]]
+    c = c +1 
+    output  <- i %>% 
+      mutate(recalls_final = tolower(word_enc) %in% tolower(j$V3))%>%  #matches the recall with task word
+      mutate(recalls_final = case_when(recalls_final == "TRUE" ~ 1, #if recalled word, puts a 1 
+                               recalls_final == "FALSE" ~ 0)) %>%  
+      group_by(condition, trialcode) %>% 
+      mutate(sum_recall = sum(recalls_final)) %>% # this column sums the recalls by condition and task
+      group_by(blocknum) %>% 
+      mutate(sum_recall_block = sum(recalls_final)) %>% #sums recalls by block
+      group_by(trialcode) %>% 
+      mutate(sum_recall_trialcode = sum(recalls_final)) #sums recalls just by task 
+    if (c ==1) {
+      sf11_total_final = output
+    } else {
+      sf11_total_final = rbind(sf11_total_final,output)
+    }}
+
+sf11_total_final 
+```
+
+
+```{r}
+#recall by task 
+library(dplyr)
+detach(package:Rmisc) 
+detach(package:plyr)
+
+
+sf11_total_2<- sf11_total_final %>% 
+  group_by(subject) %>% 
+  mutate(recall_percent2 = sum(recalls_final)/192*100) %>% 
+  summarise(mean_rec = mean(recall_percent2, na.rm = TRUE))
+sf11_total_2
+
+
+#plot of each subjects recall
+sf11_total_2 %>% 
+  ggplot(aes(x = as.character(subject), y = mean_rec))+
+  geom_col(fill = "orchid", width = .8)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))+
+  labs(title    = "Percent of Total Words Recalled",
+         x        = "Subject Number",
+         y        = "Percent Recalled")
+
+
+#plot of each subjects recall in order 
+sf11_total_2 %>% 
+  ggplot(aes(x = reorder(as.character(subject), mean_rec), y = mean_rec))+
+  geom_col(fill = "orchid", width = .8)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))+
+  labs(title    = "Percent of Total Words Recalled",
+         x        = "Subject Number",
+         y        = "Percent Recalled")
+
+
+mean_recall11_fin <- mean(sf11_total_2$mean_rec, na.rm = TRUE)
+mean_recall11_fin
+
+
+sd_11 <-sd(sf11_total_2$mean_rec, na.rm = TRUE)
+
+```
+
+```{r}
+#means between same and novel
+
+sf11_total_final_between<- sf11_total_final %>% 
+  group_by(subject, between_condition) %>% 
+  mutate(recall_percent2 = sum(recalls_final)/192*100) %>% 
+  summarise(mean_rec = mean(recall_percent2, na.rm = TRUE))
+sf11_total_final_between
+
+sf11_total_final_between_same <- sf11_total_final_between %>% 
+  filter(between_condition == "same")
+
+
+mean_recall11_fin_same<- mean(sf11_total_final_between_same$mean_rec, na.rm = TRUE)
+mean_recall11_fin_same
+
+
+sf11_total_final_between_novel <- sf11_total_final_between %>% 
+  filter(between_condition == "novel")
+
+mean_recall11_fin_novel<- mean(sf11_total_final_between_novel$mean_rec, na.rm = TRUE)
+mean_recall11_fin_novel
+
+
+t.test(sf11_total_final_between_same$mean_rec, sf11_total_final_between_novel$mean_rec)
+
+cohensD(mean_rec~ between_condition, sf11_total_final_between)
+```
+
+
+
+
+
+```{r}
+#outliers at final recall
+sf11_total_2 %>% 
+  arrange(mean_rec)
+
+
+sd_rec_fin_11 <-sd(sf11_total_2$mean_rec, na.rm = TRUE)
+
+mean_recall11_fin <- mean(sf11_total_2$mean_rec, na.rm = TRUE)
+
+mean_recall11_fin + (3 * sd_rec_fin_11) #23.67229
+mean_recall11_fin - (3 * sd_rec_fin_11)
+
+
+#remove 157246 for being > 3 SD over mean 
+
+
+mean_recall11_fin + (3 * sd_rec_fin_11) #21.32915
+mean_recall11_fin - (3 * sd_rec_fin_11)
+
+#remove 152818 for being > 3 sd after 2nd iteration 
+```
+
+
+
+```{r}
+#separate by between condition 
+sf11_total_final2 <-sf11_total_final %>% 
+  mutate(between_condition = case_when(blockcode == "control_mid_same" ~ "same",
+                                         blockcode == "control_high_same" ~"same",
+                                         blockcode == "high_control_same" ~"same",
+                                         blockcode == "mid_control_same" ~"same",
+                                       blockcode == "control_mid_novel" ~ "novel",
+                                         blockcode == "control_high_novel" ~"novel",
+                                         blockcode == "high_control_novel" ~"novel",
+                                         blockcode == "mid_control_novel" ~"novel")) %>% 
+  filter(task_switch == "switch" & condition == "high"|task_switch == "repeat" & condition == "high"|task_switch == "start" & condition == "high"| task_switch == "switch" & condition == "mid"| task_switch == "repeat" & condition == "mid"| task_switch == "start" & condition == "mid"|task_switch == "repeat" & condition == "cont_high"| task_switch == "start" & condition == "cont_high"| task_switch == "repeat" & condition == "cont_mid"| task_switch == "start" & condition == "cont_mid")
+
+
+sf11_total_same_fin <- sf11_total_final2 %>% 
+  filter(between_condition == "same")
+
+
+sf11_total_novel_fin <- sf11_total_final2 %>% 
+  filter(between_condition == "novel")
+```
+
+
+```{r}
+model_condition_total_final_3w<- glmer(recalls_final~condition_mh*condition_control*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final2)
+summary(model_condition_total_final_3w)
+tab_model(model_condition_total_final_3w)
+
+plot_model(model_condition_total_final_3w, type = "int")
+```
+
+
+
+
+```{r}
+#SAME
+
+#plot average recalls for task and condition
+
+#separate control into high and mid paired 
+#no switch items in the control 
+#difference score error bars same
+
+sf12_total_tally_same <- sf11_total_same_fin %>% 
+  group_by(subject, condition) %>% 
+  tally() 
+sf12_total_tally_same
+
+
+sf12_total_same_fin2 <- sf11_total_same_fin %>% 
+  dplyr:: select(subject, condition, trialcode, sum_recall, recalls_final) %>% 
+  group_by(subject, condition) %>% 
+  mutate(sum_recall2 = sum(recalls_final)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+merged_same <- merge(sf12_total_same_fin2,sf12_total_tally_same)
+
+
+merged_same_final<- merged_same %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+difference_error_same_fin <- merged_same_final %>% 
+  dplyr::select(subject, condition, prop_cond) %>% 
+  reshape(idvar = "subject", timevar = "condition", direction = "wide") %>% 
+  group_by(subject) %>% 
+  mutate(diff_cont_high = sum(prop_cond.high- prop_cond.cont_high)) %>% 
+  mutate(diff_cont_mid = sum(prop_cond.mid- prop_cond.cont_mid))
+
+
+
+install.packages("plotrix")
+library(plotrix)
+
+
+se_cont_high_same_fin <- std.error(difference_error_same_fin$diff_cont_high)
+
+se_cont_mid_same_fin <- std.error(difference_error_same_fin$diff_cont_mid)
+
+
+same_fin_df = data.frame(condition = c("control (mid)", "mid", "control (high)", "high"), n = c(41,41,41,41), mean = c(0.08960764, 0.08841463, 0.07741251, 0.08790650), standerr = c(0.009712275, 0.009712275, 0.008166214, 0.008166214))
+
+same_fin_df<- same_fin_df %>% 
+  mutate(condition = fct_relevel(condition, "control (mid)", "mid", "control (high)", "high"))
+
+fin_within_same <- same_fin_df %>% 
+  ggplot(aes(x = condition, y = mean)) +
+  geom_col(width = .7, aes(fill = condition), alpha = .8, color = "black", size = .3) +
+  labs(title    = "Percentage of Recalls by Condition",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean+standerr))+
+scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_x_discrete(labels=c("control" = "Control","mid"= "Low Switch", "high" = "High Switch"))+
+    scale_fill_manual(values = c("grey60", "green4", "grey20", "darkorchid4"))
+```
+
+
+
+
+
+
+
+```{r}
+#model for the just same condition 
+
+model_condition_same_11<- glmer(recalls_final~condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_same_fin)
+summary(model_condition_same_11)
+
+plot_model(model_condition_same_11, type = "pred")
+
+r2glmm::r2beta(model_condition_same_11, partial = TRUE)
+
+
+model_condition_same_11_2<- glmer(recalls_final~condition_mh*condition_control +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_same_fin)
+summary(model_condition_same_11_2)
+
+plot_model(model_condition_same_11_2, type = "int")
+```
+
+
+
+```{r}
+#NOVEL 
+
+#plot average recalls for task and condition
+
+#separate control into high and mid paired 
+#no switch items in the control 
+#difference score error bars novel 
+
+sf11_total_tally_novel <- sf11_total_novel_fin %>% 
+  group_by(subject, condition) %>% 
+  tally() 
+sf11_total_tally_novel
+
+
+sf11_total_novel_fin2 <- sf11_total_novel_fin %>% 
+  dplyr:: select(subject, condition, trialcode, sum_recall, recalls_final) %>% 
+  group_by(subject, condition) %>% 
+  mutate(sum_recall2 = sum(recalls_final)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+merged_novel <- merge(sf11_total_novel_fin2,sf11_total_tally_novel)
+
+
+merged_novel_final <- merged_novel %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+difference_error_nov_fin <- merged_novel_final %>% 
+  dplyr::select(subject, condition, prop_cond) %>% 
+  reshape(idvar = "subject", timevar = "condition", direction = "wide") %>% 
+  group_by(subject) %>% 
+  mutate(diff_cont_high = sum(prop_cond.high- prop_cond.cont_high)) %>% 
+  mutate(diff_cont_mid = sum(prop_cond.mid- prop_cond.cont_mid))
+
+
+
+install.packages("plotrix")
+library(plotrix)
+
+
+se_cont_high_nov_fin <- std.error(difference_error_nov_fin$diff_cont_high)
+
+se_cont_mid_nov_fin <- std.error(difference_error_nov_fin$diff_cont_mid)
+
+
+nov_fin_df = data.frame(condition = c("control (mid)", "mid", "control (high)", "high"), n = c(43,43,43,43), mean = c(0.08088979, 0.07655039, 0.08442872, 0.07170543), standerr = c(0.008895648, 0.008895648, 0.01091132, 0.01091132))
+
+nov_fin_df<- nov_fin_df %>% 
+  mutate(condition = fct_relevel(condition, "control (mid)", "mid", "control (high)", "high"))
+
+nov_fin_df %>% 
+  ggplot(aes(x = condition, y = mean)) +
+  geom_col(width = .7, aes(fill = condition), alpha = .8, color = "black", size = .3) +
+  labs(title    = "Percentage of Recalls by Condition",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=mean-standerr, ymax=mean+standerr))+
+scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_x_discrete(labels=c("control" = "Control","mid"= "Low Switch", "high" = "High Switch"))+
+    scale_fill_manual(values = c("grey60", "green4", "grey20", "darkorchid4"))
+```
+
+
+
+
+
+```{r}
+#model for the just novel condition 
+
+
+sf11_total_novel_fin<- sf11_total_novel_fin %>% 
+  mutate(condition = fct_relevel(condition, "high", "mid", "cont_high", "cont_mid"))
+
+model_condition_novel_11<- glmer(recalls_final~condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_novel_fin)
+summary(model_condition_novel_11)
+
+plot_model(model_condition_novel_11, type = "pred")
+
+r2glmm::r2beta(model_condition_novel_11, partial = TRUE)
+
+
+
+sf11_total_novel_fin<- sf11_total_novel_fin %>% 
+  mutate(condition = fct_relevel(condition, "high", "mid", "cont_high", "cont_mid"))
+
+model_condition_novel_11_2<- glmer(recalls_final~condition_mh*condition_control +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_novel_fin)
+summary(model_condition_novel_11_2)
+
+plot_model(model_condition_novel_11_2, type = "pred")
+```
+
+
+
+```{r}
+condition_same<- condition_same %>% 
+  mutate(between_condition = "same")
+
+
+condition_novel<-  condition_novel %>% 
+  mutate(between_condition = "novel")
+
+between_condition_bind_final_v1 <- rbind(condition_same, condition_novel)
+
+
+v1_final_11 <- between_condition_bind_final_v1 %>% 
+  ggplot(aes(x = condition, fill = interaction(between_condition,condition), y = prop_cond)) +
+  geom_bar(position="dodge", stat="identity", color = "black", size = .3, alpha = .8) +
+  labs(title    = "Percentage of Recalls by Condition and Task",
+         x        = "Condition",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=prop_cond-se, ymax=prop_cond+se))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_x_discrete(labels=c("cont_mid" = "Control (Low)","mid"= "Low Switch", "cont_high" = "Control (High)", "high" = "High Switch"))+
+  scale_fill_manual(name = "Condition", values=c("grey60", "grey20", "darkseagreen2", "darkgreen", "grey60", "grey20","lavender", "darkorchid4")) +
+  facet_wrap(.~between_condition)
+```
+
+
+
+```{r}
+#model comparing same and novel 
+
+model_condition_total_11<- glmer(recalls_final~condition*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final2)
+summary(model_condition_total_11)
+
+plot_model(model_condition_total_11, type = "int")
+
+
+
+sf11_total_final2_high <- sf11_total_final2 %>% 
+  filter(condition == "high"| condition == "cont_high")
+
+
+model_condition_total_11<- glmer(recalls_final~condition*between_condition +list_half+blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final2_high)
+summary(model_condition_total_11)
+
+r2glmm::r2beta(model_condition_total_11, partial = TRUE)
+
+
+plot_model(model_condition_total_11, type = "int")
+
+```
+
+
+
+
+
+```{r}
+#model 2x2 mid/high and switch/repeat 
+
+sf11_total_final3<-sf11_total_final2 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat")
+
+
+
+#same
+
+sf11_total_final_same_transition<-sf11_total_final2 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat") %>% 
+  filter(between_condition == "same")
+
+model_transition_final_11_same<- glmer(recalls_final~condition*task_switch + list_half+(1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final_same_transition)
+summary(model_transition_final_11_same)
+
+
+plot_model(model_transition_final_11_same, type = "int")
+
+#novel 
+
+sf11_total_final_nov_transition<-sf11_total_final2 %>% 
+  filter(condition == "high" | condition == "mid") %>% 
+  filter(task_switch == "switch" | task_switch == "repeat") %>% 
+  filter(between_condition == "novel")
+
+model_transition_final_11_novel<- glmer(recalls_final~condition*task_switch +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final_nov_transition)
+summary(model_transition_final_11_novel)
+
+
+plot_model(model_transition_final_11_novel, type = "int")
+
+
+#total
+
+model_transition_final_11<- glmer(recalls_final~condition*task_switch*between_condition +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final3)
+summary(model_transition_final_11)
+
+
+plot_model(model_transition_final_11, type = "int")
+
+
+#mid
+sf11_total_final3_mid <- sf11_total_final3 %>% 
+  filter(condition == "high") %>% 
+  filter(between_condition == "novel")
+
+model_transition_final_11_mid<- glmer(recalls_final~task_switch +list_half + blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_final3_mid)
+summary(model_transition_final_11_mid)
+
+plot_model(model_transition_final_11_mid, type = "int")
+
+# full model won't converge 
+
+```
+
+
+
+```{r}
+#boundary vs preboundary- supplemental materials 
+detach(package:Rmisc)
+detach(package:plyr)
+
+
+sf11_total_mid_spc_final<- sf11_total_final2 %>% 
+  filter(condition == "mid") %>% 
+  filter(trialnum == "5" | trialnum == "6" |trialnum == "8" |trialnum == "9" |trialnum == "10" |trialnum == "12"| trialnum == "13" |trialnum == "14"| trialnum == "16" |trialnum == "17" |trialnum == "18" |trialnum == "20") %>%
+  mutate(trialnum_new = case_when(trialnum == "5" ~ "boundary",
+                                  trialnum == "6" ~ "postboundary",
+                               trialnum == "8" ~ "preboundary",
+                               trialnum == "9" ~ "boundary",
+                               trialnum == "10" ~ "postboundary",
+                               trialnum == "12" ~ "preboundary",
+                               trialnum == "13" ~ "boundary",
+                               trialnum == "14" ~ "postboundary",
+                               trialnum == "16" ~ "preboundary",
+                               trialnum == "17" ~ "boundary",
+                               trialnum == "18" ~ "postboundary",
+                               trialnum == "20" ~ "preboundary")) 
+
+
+
+spc_mid_11_tally_final <- sf11_total_mid_spc_final %>% 
+  group_by(subject, trialnum_new) %>% 
+  tally() 
+spc_mid_11_tally_final
+
+
+spc_mid_11_final <- sf11_total_mid_spc_final %>% 
+  dplyr:: select(subject, trialnum_new, between_condition, recalls_final) %>% 
+  group_by(subject, trialnum_new, between_condition) %>% 
+  mutate(sum_recall2 = sum(recalls_final)) %>% 
+  summarise(mean_rec_cond = mean(sum_recall2)) 
+
+
+merged_spc_final <- merge(spc_mid_11_final,spc_mid_11_tally_final)
+
+
+merged_spc_final <- merged_spc_final %>% 
+  mutate(prop_cond = mean_rec_cond/n)
+
+
+merged_spc_final<- merged_spc_final %>% 
+  mutate(trialnum_new = fct_relevel(trialnum_new, "preboundary", "boundary", "postboundary"))
+
+
+library(Rmisc)
+
+spc_mid_11_final <- summarySEwithin(merged_spc_final, measurevar="prop_cond", withinvars = c("trialnum_new", "between_condition"),idvar = "subject", na.rm=FALSE, conf.interval=.95)
+
+
+v1_spc_sf11_bound_final <- spc_mid_11_final %>% 
+  ggplot(aes(x = trialnum_new, fill = interaction(between_condition,trialnum_new), y = prop_cond)) +
+  geom_bar(position="dodge", stat="identity", color = "black", size = .3, alpha = .8) +
+  labs(title    = "Percentage of Recalls by Condition and Task",
+         x        = "Transition Type",
+         y        = "Percent Recalled")+
+  theme_classic()+
+  geom_errorbar(width=.1, position=position_dodge(.9), aes(ymin=prop_cond-se, ymax=prop_cond+se))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1L), expand = c(0,0))+
+  scale_fill_manual(name = "Transition Type", values=c("grey60", "grey20", "darkseagreen2", "darkgreen", "grey60", "grey20","lavender", "darkorchid4")) +
+  facet_wrap(.~between_condition)
+
+ggsave(plot=v1_spc_sf11_bound_final, width = 8, height = 5, filename="~/v1_spc_sf11_bound_final_se.pdf")
+```
+
+
+
+```{r}
+#model for boundary information 
+
+sf11_total_mid_spc_final<- sf11_total_mid_spc_final %>% 
+  mutate(trialnum_new = fct_relevel(trialnum_new, "boundary", "preboundary", "postboundary"))
+
+
+sf11_total_mid_spc_final2 <- sf11_total_mid_spc_final %>% 
+  filter(between_condition == "novel")
+
+
+sf11_total_mid_spc_3_model_total_final<- glmer(recalls_final~trialnum_new+ blocknum_contin + (1|subject)+ (1|word_enc), family = binomial, data = sf11_total_mid_spc_final2)
+summary(sf11_total_mid_spc_3_model_total_final)
+
+plot_model(sf11_total_mid_spc_3_model_total_final, type = "pred")
+```
+
+
